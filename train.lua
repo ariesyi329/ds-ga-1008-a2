@@ -1,4 +1,6 @@
 require 'xlua'
+require 'image'
+require 'torch'
 require 'optim'
 require 'cunn'
 dofile './provider.lua'
@@ -20,6 +22,8 @@ opt = lapp[[
 print(opt)
 
 do -- data augmentation module
+  
+  -- horizontal flip
   local BatchFlip,parent = torch.class('nn.BatchFlip', 'nn.Module')
 
   function BatchFlip:__init()
@@ -38,24 +42,107 @@ do -- data augmentation module
     self.output:set(input)
     return self.output
   end
+
+  -- rotate
+  local BatchRotate, parent = torch.class('nn.BatchRotate', 'nn.Module')
+
+  function BatchRotate:__init()
+    parent.__init(self)
+    self.train = true
+  end
+
+  function BatchRotate:updateOutput(input)
+    if self.train then
+      local bs = input:size(1)
+      local rotate_mask = torch.randperm(bs):le(bs/2)
+      for i=1, input:size(1) do
+        if rotate_mask[i] == 1 then
+          local theta = torch.uniform(-15,15)
+          local rad = math.rad(theta)
+          input[i] = image.rotate(input[i], rad) 
+        end
+      end
+    end
+    self.output:set(input)
+    return self.output
+  end
+
+  -- scale + crop
+  local BatchScale, parent = torch.class('nn.BatchScale', 'nn.Module')
+    
+  function BatchScale:__init()
+    parent.__init(self)
+    self.train = true
+  end
+    
+  function BatchScale:updateOutput(input)
+    if self.train then
+      local bs = input:size(1)
+      local scale_mask = torch.randperm(bs):le(bs/2)
+      for i=1, input:size(1) do
+        if scale_mask[i] == 1 then 
+          local ratio = torch.uniform(1,1.4)
+          local width = input[i]:size(2)*ratio
+          local height = input[i]:size(3)*ratio
+          local temp = image.scale(input[i], width, height)
+          local left = width/2 - 48
+          local right = left + 96
+          local bottom = height/2 - 48
+          local top = bottom + 96
+          image.crop(input[i], temp, left, bottom, right, top)
+        end
+      end
+    end
+    self.output:set(input)
+    return self.output
+  end
+
+  -- color augmentation
+  local BatchColor, parent = torch.class('nn.BatchColor', 'nn.Module')
+    
+  function BatchColor:__init()
+    parent.__init(self)
+    self.train = true
+  end
+    
+  function BatchColor:updateOutput(input)
+    if self.train then
+      local bs = input:size(1)
+      local color_mask = torch.randperm(bs):le(bs/2)
+      for i=1, input:size(1) do
+        if color_mask[i] == 1 then
+          image.rgb2hsv(input[i], input[i])
+          local a = torch.uniform(-0.1,0.1)
+          input[i] = input[i] + a
+          image.hsv2rgb(input[i], input[i])
+        end
+      end
+    end
+    self.output:set(input)
+    return self.output
+  end
 end
+
 
 print(c.blue '==>' ..' configuring model')
 local model = nn.Sequential()
+model:add(nn.BatchColor():float())
 model:add(nn.BatchFlip():float())
+model:add(nn.BatchRotate():float())
+model:add(nn.BatchScale():float())
 model:add(nn.Copy('torch.FloatTensor','torch.CudaTensor'):cuda())
 model:add(dofile('models/'..opt.model..'.lua'):cuda())
-model:get(2).updateGradInput = function(input) return end
+model:get(5).updateGradInput = function(input) return end
 
 if opt.backend == 'cudnn' then
    require 'cudnn'
-   cudnn.convert(model:get(3), cudnn)
+   cudnn.convert(model:get(6), cudnn)
 end
 
 print(model)
 
 print(c.blue '==>' ..' loading data')
-provider = torch.load 'provider.t7'
+provider = Provider()
 provider.trainData.data = provider.trainData.data:float()
 provider.valData.data = provider.valData.data:float()
 
@@ -184,7 +271,7 @@ function val()
   if epoch % 5 == 0 then
     local filename = paths.concat(opt.save, 'model.net')
     print('==> saving model to '..filename)
-    torch.save(filename, model:get(3))
+    torch.save(filename, model:get(6))
   end
 
   confusion:zero()
