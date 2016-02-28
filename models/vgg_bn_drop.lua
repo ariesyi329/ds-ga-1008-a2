@@ -1,4 +1,13 @@
 require 'nn'
+require 'torch'
+
+cents = torch.load('kmeans3_256.t7')
+centroids = torch.ByteTensor(64, 3, 3, 3)
+
+for i=1, 64 do
+  local ind=torch.randperm(256)
+  centroids[i] = cents[ind[i]]
+end
 
 local vgg = nn.Sequential()
 
@@ -61,6 +70,10 @@ local function MSRinit(net)
 end
 
 MSRinit(vgg)
+
+conv = vgg:get(1)
+conv:reset(0)
+conv.weight = centroids
 
 -- check that we can propagate forward without errors
 -- should get 16x10 tensor
