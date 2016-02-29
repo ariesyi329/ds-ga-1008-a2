@@ -151,18 +151,18 @@ end
 
 print ("==> load data...")
 extra = torch.load('stl-10/extra.t7b')
-X = torch.ByteTensor(#extra.data[1], 3, 96, 96)
+X = torch.ByteTensor(#extra.data[1]/100, 3, 96, 96)
 
-for i = 1, #extra.data[1] do
+for i = 1, #extra.data[1]/100 do
     X[i] = extra.data[1][i]
 end
 
-X = X:float()
+X = X:double()
 
 --normalize
 
 print ("==> normalize data...")
-local normalization = nn.SpatialContrastiveNormalization(1, image.gaussian1D(7))
+normalization = nn.SpatialContrastiveNormalization(1, image.gaussian1D(7))
 for i = 1,X:size(1) do
      xlua.progress(i, X:size(1))
      -- rgb -> yuv
@@ -173,15 +173,17 @@ for i = 1,X:size(1) do
      X[i] = yuv
 end
   -- normalize u globally:
-local mean_u = X:select(2,2):mean()
-local std_u = X:select(2,2):std()
+mean_u = X:select(2,2):mean()
+std_u = X:select(2,2):std()
 X:select(2,2):add(-mean_u)
 X:select(2,2):div(std_u)
 -- normalize v globally:
-local mean_v = X:select(2,3):mean()
-local std_v = X:select(2,3):std()
+mean_v = X:select(2,3):mean()
+std_v = X:select(2,3):std()
 X:select(2,3):add(-mean_v)
 X:select(2,3):div(std_v)
+
+X = X:float()
 
 print ("==> data augmentation...")
 --store data to augmented
@@ -216,7 +218,7 @@ pats = patchify(augmented, n_patches, filtersize, filtersize)
 print ("==> whiten data...")
 whitened_pats = unsup.zca_whiten(pats,nil,nil,nil,epsilon)
 num_kernels = 1024
-niters = 500
+niters = 1
 print ("kmeans starts...")
 cents = unsup.kmeans(whitened_pats, num_kernels, niters, verbose==true):reshape(num_kernels, n_channel, filtersize, filtersize)
 
