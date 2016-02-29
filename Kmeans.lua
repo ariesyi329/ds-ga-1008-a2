@@ -151,10 +151,11 @@ end
 
 print ("==> load data...")
 extra = torch.load('stl-10/extra.t7b')
-X = torch.ByteTensor(#extra.data[1]/100, 3, 96, 96)
+X = torch.ByteTensor(#extra.data[1]/10, 3, 96, 96)
 
-for i = 1, #extra.data[1]/100 do
-    X[i] = extra.data[1][i]
+for i = 1, #extra.data[1]/10 do
+    ind = torch.randperm(#extra.data[1])
+    X[i] = extra.data[1][ind[i]]
 end
 
 X = X:double()
@@ -209,7 +210,7 @@ for i = 1, X:size(1) do
 end
 
 
-filtersize = 7
+filtersize = 3
 n_patches = 10
 n_channel = 3
 
@@ -217,11 +218,11 @@ print ("==> get patches...")
 pats = patchify(augmented, n_patches, filtersize, filtersize)
 print ("==> whiten data...")
 whitened_pats = unsup.zca_whiten(pats,nil,nil,nil,epsilon)
-num_kernels = 1024
-niters = 1
+num_kernels = 256
+niters = 100
 print ("kmeans starts...")
 cents = unsup.kmeans(whitened_pats, num_kernels, niters, verbose==true):reshape(num_kernels, n_channel, filtersize, filtersize)
 
-file = 'kmeans_'..num_kernels..'.t7'
+file = 'kmeans3_'..num_kernels..'.t7'
 print('==> saving centroids to disk: ' .. file)
 torch.save(file, cents)
