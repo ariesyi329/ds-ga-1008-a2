@@ -2,7 +2,7 @@ require 'nn'
 require 'torch'
 
 cents = torch.load('kmeans3_256.t7')
-centroids = torch.ByteTensor(64, 3, 3, 3)
+centroids = torch.DoubleTensor(64, 3, 3, 3)
 
 for i=1, 64 do
   local ind=torch.randperm(256)

@@ -1,8 +1,8 @@
 require 'nn'
 require 'torch'
 
-cents = torch.load('kmeans3_256.t7')
-centroids = torch.ByteTensor(64, 3, 3, 3)
+cents = torch.load('kmeans7_256.t7')
+centroids = torch.DoubleTensor(64, 3, 7, 7)
 
 for i=1, 64 do
   local ind=torch.randperm(256)
@@ -13,7 +13,7 @@ local vgg = nn.Sequential()
 
 -- building block
 local function ConvBNReLU(nInputPlane, nOutputPlane)
-  vgg:add(nn.SpatialConvolution(nInputPlane, nOutputPlane, 3,3, 1,1, 1,1))
+  vgg:add(nn.SpatialConvolution(nInputPlane, nOutputPlane, 7,7, 1,1, 3,3))
   vgg:add(nn.SpatialBatchNormalization(nOutputPlane,1e-3))
   vgg:add(nn.ReLU(true))
   return vgg
