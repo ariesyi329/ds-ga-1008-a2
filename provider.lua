@@ -5,7 +5,7 @@ require 'xlua'
 torch.setdefaulttensortype('torch.FloatTensor')
 
 -- parse STL-10 data from table into Tensor
-function parseDataLabel(d, numSamples, numChannels, height, width)
+function parseValidDataLabel(d, numSamples, numChannels, height, width)
    local t = torch.ByteTensor(numSamples, numChannels, height, width)
    local l = torch.ByteTensor(numSamples)
    local idx = 1
@@ -22,10 +22,38 @@ function parseDataLabel(d, numSamples, numChannels, height, width)
 end
 
 
+function parseTrainDataLabel(dtrain, d1, d2, numSamples, numChannels, height, width)
+   local t = torch.ByteTensor(numSamples, numChannels, height, width)
+   local l = torch.ByteTensor(numSamples)
+   local idx = 1
+   for i = 1, #dtrain do
+      local this_d = dtrain[i]
+      for j = 1, #this_d do
+    t[idx]:copy(this_d[j])
+    l[idx] = i
+    idx = idx + 1
+      end
+   end
+   
+   for i = 1, d1.data:size(1) do
+      t[idx] = d1.data[i]
+      l[idx] = d1.labels[i]
+      idx = idx+1
+   end
+
+   for i=1, d2.data:size(1) do
+      t[idx] = d2.data[i]
+      l[idx] = d2.labels[i]
+      idx = idx+1
+   end
+   assert(idx == numSamples+1)
+   return t, l
+end
+
 local Provider = torch.class 'Provider'
 
 function Provider:__init(full)
-  local trsize = 4000
+  local trsize = 4000+2679+2631
   local valsize = 1000  -- Use the validation here as the valing set
   local channel = 3
   local height = 96
@@ -49,14 +77,15 @@ function Provider:__init(full)
 
   local raw_train = torch.load('stl-10/train.t7b')
   local raw_val = torch.load('stl-10/val.t7b')
-
+  local raw_extra1 = torch.load('selected1.t7')
+  local raw_extra2 = torch.load('selected2.t7')
   -- load and parse dataset
   self.trainData = {
      data = torch.Tensor(),
      labels = torch.Tensor(),
      size = function() return trsize end
   }
-  self.trainData.data, self.trainData.labels = parseDataLabel(raw_train.data,
+  self.trainData.data, self.trainData.labels = parseTrainDataLabel(raw_train.data,raw_extra1, raw_extra2,
                                                    trsize, channel, height, width)
   local trainData = self.trainData
   self.valData = {
@@ -64,7 +93,7 @@ function Provider:__init(full)
      labels = torch.Tensor(),
      size = function() return valsize end
   }
-  self.valData.data, self.valData.labels = parseDataLabel(raw_val.data,
+  self.valData.data, self.valData.labels = parseValidDataLabel(raw_val.data,
                                                  valsize, channel, height, width)
   local valData = self.valData
 
