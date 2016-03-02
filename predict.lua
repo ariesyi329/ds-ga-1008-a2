@@ -54,32 +54,6 @@ testData.data = parseDataLabel(rawTest.data[1], testSize, channel, height, width
 testData.data = testData.data:float()
 collectgarbage()
 
---[[
-print "==> normalize testData"
-local normalization = nn.SpatialContrastiveNormalization(1, image.gaussian1D(7))
-for i = 1,testData:size() do
-	xlua.progress(i, testData:size())
-     	-- rgb -> yuv
-     	local rgb = testData.data[i]
-     	local yuv = image.rgb2yuv(rgb)
-     	-- normalize y locally:
-     	yuv[1] = normalization(yuv[{{1}}])
-     	testData.data[i] = yuv
-end
--- normalize u globally:
-mean_u = provider.trainData.mean_u
-std_u = provider.trainData.std_u
-mean_v = provider.trainData.mean_v
-std_v = provider.trainData.std_v
-
-testData.data:select(2,2):add(-mean_u)
-testData.data:select(2,2):div(std_u)
--- normalize v globally:
-testData.data:select(2,3):add(-mean_v)
-testData.data:select(2,3):div(std_v)
-]]
-
-
 -- Load the model
 
 print "==> loading model..."
@@ -89,17 +63,6 @@ print "==> predicting..."
 model:cuda()
 model:evaluate()
 
---[[
-for t = 1, testData.size() do
-	xlua.progress(t, testData.size())
-
-	local input = testData.data[t]:cuda()
-	local pred = model:forward(input)
-end 
-]]
---preds = {}
---probs = {}
---confusion = optim.ConfusionMatrix(10)
 
 local bs = 25
 local currIdx = 1
@@ -115,9 +78,7 @@ for t = 1,testData.size(1),bs do
 		local label = torch.LongTensor()
 		local _max = torch.FloatTensor()
 		_max:max(label, outputs[k]:float(), 1)
-		--preds[currIdx] = label[1]
-        --probs[currIdx] = torch.max(outputs[k]:float())
-        if torch.max(outputs[k]:float()) > 12 then
+      if torch.max(outputs[k]:float()) > 12 then
         	selectedData.data[selectedNum] = testData.data[currIdx]
  			selectedData.labels[selectedNum] = label[1]
 			selectedNum = selectedNum+1
@@ -126,20 +87,6 @@ for t = 1,testData.size(1),bs do
 end
 
 
---confusion:updateValids()
---print('val accuracy:', confusion.totalValid * 100)
-
---print(confusion)
-
---[[
-print('==> saving predictions')
-file = io.open('_predictions_augments.csv', 'w')
-file:write('Id,Prediction\n')
-for i, p in ipairs(preds) do
-   file:write(i..','..p..'\n')
-end
-file:close()
-]]
 
 torch.save('selected1.t7', selectedData)
 end
