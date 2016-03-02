@@ -115,8 +115,6 @@ for t = 1,testData.size(1),bs do
 		local label = torch.LongTensor()
 		local _max = torch.FloatTensor()
 		_max:max(label, outputs[k]:float(), 1)
-		--preds[currIdx] = label[1]
-        --probs[currIdx] = torch.max(outputs[k]:float())
         if torch.max(outputs[k]:float()) > 12 then
         	selectedData.data[selectedNum] = testData.data[currIdx]
  			selectedData.labels[selectedNum] = label[1]
