@@ -10,8 +10,9 @@ function parseDataLabel(d, numSamples, numChannels, height, width)
 	local t = torch.ByteTensor(numSamples, numChannels, height, width)
 	--local l = torch.ByteTensor(numSamples)
 	local idx = 1
+    local prem = torch.randperm(100000)
 	for i = 1, numSamples do
-		local this_d = d[100000-i+1]
+		local this_d = d[prem[idx]]
 		--for j = 1, #this_d do
 		t[i]:copy(this_d)
 		--l[idx] = i
@@ -22,13 +23,13 @@ function parseDataLabel(d, numSamples, numChannels, height, width)
 end
 
 --local trainSize = 4000
-local testSize = 50000
+local testSize = 1000
 local channel = 3
 local height = 96
 local width = 96
 
 --local model_file = "logs/vgg/baseline_epoch_230.net"
-local model_file = "logs/augments/model.net"
+local model_file = "logs/sample-r15-t15-km3-km3-drop/model.net"
 -- local model_file = "logs/kmeans3/model.net"
 
 local rawTest = torch.load('stl-10/extra.t7b')
@@ -42,8 +43,8 @@ testData = {
 }
 
 selectedData = {
-	data = torch.Tensor(2631, 3, 96, 96),
-	labels = torch.Tensor(2631)
+	data = torch.Tensor(1000, 3, 96, 96),
+	labels = torch.Tensor(1000)
 }
 
 
@@ -59,6 +60,7 @@ collectgarbage()
 
 print "==> loading model..."
 model = torch.load(model_file)
+model:add(nn.SoftMax())
 
 print "==> predicting..."
 model:cuda()
@@ -78,7 +80,8 @@ for t = 1,testData.size(1),bs do
 		local label = torch.LongTensor()
 		local _max = torch.FloatTensor()
 		_max:max(label, outputs[k]:float(), 1)
-        if torch.max(outputs[k]:float()) > 12 then
+        if torch.max(outputs[k]:float()) == 1 then
+            --print (outputs[k]:float())
         	selectedData.data[selectedNum] = testData.data[currIdx]
  			selectedData.labels[selectedNum] = label[1]
 			selectedNum = selectedNum+1
@@ -89,5 +92,5 @@ end
 
 
 print (selectedNum)
-torch.save('selected2.t7', selectedData)
+torch.save('selected.t7', selectedData)
 
